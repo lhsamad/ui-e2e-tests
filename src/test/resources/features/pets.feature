@@ -13,6 +13,7 @@ Feature: Manage Pets
     When the user navigates to add a new pet
     And the user enters pet details
     And the user submits the pet form
+    And the user navigates back to the pet list
     Then the newly added pet should appear in the list
 
   Scenario: User can view a pet's details
