@@ -55,6 +55,34 @@ public class PetSteps {
         Assert.assertTrue(driver.getCurrentUrl().contains("/pets"));
         quitDriver();
     }
+    
+    // --- Scenario: User can edit existing pet ---
+    @When("the user navigates edit pet")
+    public void userNavigatesEditPet() {
+        // Direct navigation to the edit page of a known pet, e.g., ID 1
+        driver.get("http://localhost:4200/pets/1/edit");
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait.until(ExpectedConditions.urlContains("/pets/1/edit"));
+    }
+
+    @When("the user updates a pet detail")
+    public void userUpdatesAPetDetail() {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("form")));
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+
+        // Updating the name field as an example
+        WebElement nameInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("name")));
+        nameInput.clear();
+        nameInput.sendKeys("Updated Buddy");
+        js.executeScript("arguments[0].dispatchEvent(new Event('input', { bubbles: true })); arguments[0].dispatchEvent(new Event('blur'));", nameInput);
+    }
 
     // --- Scenario: User can add a new pet ---
 

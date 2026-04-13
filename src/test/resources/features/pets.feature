@@ -8,6 +8,14 @@ Feature: Manage Pets
     When the user logs in with valid credentials
     Then the user should see the pet list
 
+Scenario: User can edit existing pet
+    Given the user is logged in
+    When the user navigates edit pet
+    And the user updates a pet detail
+    And the user submits the pet form
+    And the user navigates back to the pet list
+    Then the newly added pet should appear in the list
+
   Scenario: User can add a new pet
     Given the user is logged in
     When the user navigates to add a new pet
