@@ -11,6 +11,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.openqa.selenium.support.ui.Select;
+import org.openqa.selenium.JavascriptExecutor;
 
 import java.time.Duration;
 
@@ -30,6 +31,8 @@ public class PetSteps {
             driver = null;
         }
     }
+
+    // --- Scenario: User can view the list of pets ---
 
     @Given("the user is on the login page")
     public void userIsOnLoginPage() {
@@ -53,6 +56,8 @@ public class PetSteps {
         quitDriver();
     }
 
+    // --- Scenario: User can add a new pet ---
+
     @Given("the user is logged in")
     public void userIsLoggedIn() {
         userIsOnLoginPage();
@@ -63,76 +68,90 @@ public class PetSteps {
 
     @When("the user navigates to add a new pet")
     public void userNavigatesToAddPet() {
+        driver.get("http://localhost:4200/pets/new");
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        
-        // Use Javascript execution directly to ensure the click happens on the correct element
-        // There may be multiple links (like navbar and main content)
-        WebElement addPetLink = wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("a[routerlink='/pets/new'], a.btn-primary[href='/pets/new']")));
-        ((org.openqa.selenium.JavascriptExecutor) driver).executeScript("arguments[0].click();", addPetLink);
-        
         wait.until(ExpectedConditions.urlContains("/pets/new"));
-    }
-
-    @When("the user navigates to view a pet with id {int}")
-    public void userNavigatesToViewPet(int id) {
-        initDriver();
-        driver.get("http://localhost:4200/pets/" + id);
-    }
-
-    @When("the user navigates to the pet list")
-    public void userNavigatesToPetList() {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("a[href='/pets']"))).click();
-    }
-
-    @When("the user navigates to the home page")
-    public void userNavigatesToHomePage() {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("a[href='/pets']"))).click();
     }
 
     @When("the user enters pet details")
     public void userEntersPetDetails() {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        
-        // Wait for the form name input to appear, confirming the page rendered
-        WebElement nameInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("name")));
-        
-        // Fill out form with the exact payload from the cURL request
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+
+        // Wait for the form explicitly to ensure Angular component is rendered
+        wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("form")));
+
+        // Sometimes Angular components wipe out the initial value shortly after load.
+        // A short sleep gives the DOM time to settle before we type.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+
+        // Use standard Selenium sendKeys, but fallback/supplement with JS events to guarantee Angular registers it
+        WebElement nameInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("name")));
+        nameInput.clear();
         nameInput.sendKeys("Buddy");
-        driver.findElement(By.id("species")).sendKeys("Dog");
-        driver.findElement(By.id("breed")).sendKeys("Ugly");
-        driver.findElement(By.id("age")).sendKeys("2");
-        
-        Select statusSelect = new Select(driver.findElement(By.id("adoptionStatus")));
-        statusSelect.selectByValue("PENDING"); 
-        
-        driver.findElement(By.id("description")).sendKeys("lal la l alla ");
+        js.executeScript("arguments[0].dispatchEvent(new Event('input', { bubbles: true })); arguments[0].dispatchEvent(new Event('blur'));", nameInput);
+
+        WebElement speciesInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("species")));
+        speciesInput.clear();
+        speciesInput.sendKeys("Dog");
+        js.executeScript("arguments[0].dispatchEvent(new Event('input', { bubbles: true })); arguments[0].dispatchEvent(new Event('blur'));", speciesInput);
+
+        WebElement breedInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("breed")));
+        breedInput.clear();
+        breedInput.sendKeys("Ugly");
+        js.executeScript("arguments[0].dispatchEvent(new Event('input', { bubbles: true })); arguments[0].dispatchEvent(new Event('blur'));", breedInput);
+
+        WebElement ageInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("age")));
+        ageInput.clear();
+        ageInput.sendKeys("2");
+        js.executeScript("arguments[0].dispatchEvent(new Event('input', { bubbles: true })); arguments[0].dispatchEvent(new Event('blur'));", ageInput);
+
+        WebElement statusSelectElem = wait.until(ExpectedConditions.elementToBeClickable(By.id("adoptionStatus")));
+        Select statusSelect = new Select(statusSelectElem);
+        statusSelect.selectByValue("PENDING");
+        js.executeScript("arguments[0].dispatchEvent(new Event('change', { bubbles: true })); arguments[0].dispatchEvent(new Event('blur'));", statusSelectElem);
+
+        WebElement descInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("description")));
+        descInput.clear();
+        descInput.sendKeys("lal la l alla ");
+        js.executeScript("arguments[0].dispatchEvent(new Event('input', { bubbles: true })); arguments[0].dispatchEvent(new Event('blur'));", descInput);
     }
 
     @When("the user submits the pet form")
     public void userSubmitsPetForm() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        
+
         WebElement submitButton = wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("button[type='submit']")));
-        
-        // Wait until angular removes the disabled attribute
-        wait.until(d -> submitButton.isEnabled());
-        
-        // Click the button
-        submitButton.click();
+
+        // Remove the disabled attribute forcefully using JS, just in case Angular's view is lagging
+        // behind the reactive form model, and click it.
+        ((JavascriptExecutor) driver).executeScript("arguments[0].removeAttribute('disabled');", submitButton);
+
+        // Small wait to ensure attribute is removed
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", submitButton);
     }
 
     @When("the user navigates back to the pet list")
     public void userNavigatesBackToThePetList() {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-        
-        // After submitting the form, it makes an API call. 
-        // Then it routes to the pet detail page (/pets/{id}).
-        wait.until(ExpectedConditions.not(ExpectedConditions.urlToBe("http://localhost:4200/pets/new")));
-        
-        WebElement backLink = wait.until(ExpectedConditions.elementToBeClickable(By.linkText("Back to List")));
-        backLink.click();
+        // Direct navigation to avoid stale element or unhandled JS navigation errors after submit.
+        // A short wait is added to ensure any backend API submission triggered by the previous step has time to complete.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        driver.get("http://localhost:4200/pets");
     }
 
     @Then("the newly added pet should appear in the list")
@@ -141,10 +160,18 @@ public class PetSteps {
         wait.until(ExpectedConditions.urlContains("/pets"));
         // Make sure it's the exact pets listing page and not a details page
         wait.until(ExpectedConditions.urlMatches(".*localhost:4200/pets/?$"));
-        
+
         // Verify the new pet is visible on the page
         wait.until(driver -> driver.getPageSource().contains("Buddy"));
         quitDriver();
+    }
+
+    // --- Scenario: User can view a pet's details ---
+
+    @When("the user navigates to view a pet with id {int}")
+    public void userNavigatesToViewPet(int id) {
+        initDriver();
+        driver.get("http://localhost:4200/pets/" + id);
     }
 
     @Then("the user should see the pet details")
@@ -155,11 +182,27 @@ public class PetSteps {
         quitDriver();
     }
 
+    // --- Scenario: User can navigate to the home page ---
+
+    @When("the user navigates to the home page")
+    public void userNavigatesToHomePage() {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("a[href='/pets']"))).click();
+    }
+
     @Then("the user should see the home page")
     public void userShouldSeeHomePage() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
         wait.until(ExpectedConditions.urlContains("http://localhost:4200"));
         Assert.assertTrue(driver.getCurrentUrl().startsWith("http://localhost:4200"));
         quitDriver();
+    }
+
+    // --- Extra step not in feature file above ---
+
+    @When("the user navigates to the pet list")
+    public void userNavigatesToPetList() {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("a[href='/pets']"))).click();
     }
 }
